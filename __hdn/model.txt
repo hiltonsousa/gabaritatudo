@@ -1,0 +1,3 @@
+Nós estamos projetando um web sistema que vai apresentar ao usuário provas fechadas, com múltiplas questões. 
+Cada questão terá um texto e uma ou mais proposições.
+Questões com uma proposição são do tipo "certo" ou "errado"
