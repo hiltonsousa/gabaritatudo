@@ -1,145 +1,146 @@
--- =========================
--- 1. EXAMS (provas / conjuntos)
--- =========================
-CREATE TABLE exams (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    organization VARCHAR(255),
-    year INT,
-    type ENUM('exam', 'subject') DEFAULT 'exam',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- -----------------------------------------------------
+-- 1. Criar o banco de dados
+-- -----------------------------------------------------
+CREATE DATABASE IF NOT EXISTS sistema_questoes
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
 
--- =========================
--- 2. SUBJECTS (disciplinas)
--- =========================
-CREATE TABLE subjects (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    parent_id INT NULL,
-    FOREIGN KEY (parent_id) REFERENCES subjects(id)
-);
+USE sistema_questoes;
 
--- =========================
--- 3. RELAÇÃO EXAM x SUBJECT
--- =========================
-CREATE TABLE exam_subjects (
-    exam_id INT,
-    subject_id INT,
-    PRIMARY KEY (exam_id, subject_id),
-    FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE,
-    FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
-);
+-- -----------------------------------------------------
+-- 2. Criar o usuário do sistema (com senha)
+-- -----------------------------------------------------
+-- Cria o usuário (troque 'senha_segura' por uma senha forte)
+CREATE USER IF NOT EXISTS 'app_questoes'@'localhost' 
+IDENTIFIED BY '8&t|YOAc5e2o7/7{2';
 
--- =========================
--- 4. QUESTION GROUPS (texto base)
--- =========================
-CREATE TABLE question_groups (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    exam_id INT NOT NULL,
-    subject_id INT,
-    text TEXT NOT NULL,
-    reference TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE CASCADE,
-    FOREIGN KEY (subject_id) REFERENCES subjects(id)
-);
+-- Concede privilégios para o usuário no banco
+GRANT SELECT, INSERT, UPDATE, DELETE ON sistema_questoes.* 
+TO 'app_questoes'@'localhost';
 
-CREATE INDEX idx_groups_exam ON question_groups(exam_id);
+-- Aplica as permissões
+FLUSH PRIVILEGES;
 
--- =========================
--- 5. QUESTION ITEMS (itens)
--- =========================
-CREATE TABLE question_items (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    group_id INT NOT NULL,
-    statement TEXT NOT NULL,
-    type ENUM('boolean', 'multiple_choice') DEFAULT 'boolean',
-    correct_answer VARCHAR(5) NOT NULL,
-    explanation TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (group_id) REFERENCES question_groups(id) ON DELETE CASCADE
-);
+-- -----------------------------------------------------
+-- 3. Criar as tabelas
+-- -----------------------------------------------------
 
-CREATE INDEX idx_items_group ON question_items(group_id);
+-- Tabela: bancas
+CREATE TABLE bancas (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nome VARCHAR(150) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY unq_nome (nome)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =========================
--- 6. OPTIONS (múltipla escolha)
--- =========================
-CREATE TABLE question_options (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    item_id INT NOT NULL,
-    label VARCHAR(5) NOT NULL,
-    text TEXT NOT NULL,
-    FOREIGN KEY (item_id) REFERENCES question_items(id) ON DELETE CASCADE
-);
+-- Tabela: disciplinas
+CREATE TABLE disciplinas (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nome VARCHAR(100) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY unq_nome (nome)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_options_item ON question_options(item_id);
+-- Tabela: provas
+CREATE TABLE provas (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    ano YEAR NOT NULL,
+    banca_id INT UNSIGNED NULL,
+    nome VARCHAR(200) NULL,
+    PRIMARY KEY (id),
+    INDEX idx_ano (ano),
+    INDEX idx_banca (banca_id),
+    FOREIGN KEY (banca_id) REFERENCES bancas(id) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =========================
--- 7. USERS (opcional)
--- =========================
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) UNIQUE,
-    password_hash VARCHAR(255),
-    is_premium BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Tabela: provas_disciplinas
+CREATE TABLE provas_disciplinas (
+    prova_id INT UNSIGNED NOT NULL,
+    disciplina_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (prova_id, disciplina_id),
+    FOREIGN KEY (prova_id) REFERENCES provas(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (disciplina_id) REFERENCES disciplinas(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =========================
--- 8. ATTEMPTS (simulados)
--- =========================
-CREATE TABLE attempts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NULL,
-    mode ENUM('exam', 'random') NOT NULL,
-    exam_id INT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    finished_at TIMESTAMP NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-    FOREIGN KEY (exam_id) REFERENCES exams(id) ON DELETE SET NULL
-);
+-- Tabela: questoes
+CREATE TABLE questoes (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    prova_id INT UNSIGNED NOT NULL,
+    disciplina_id INT UNSIGNED NOT NULL,
+    texto LONGTEXT NOT NULL,
+    referencia TEXT NULL,
+    julgue VARCHAR(255) NULL,
+    ativo TINYINT(1) DEFAULT 1,
+    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_prova (prova_id),
+    INDEX idx_disciplina (disciplina_id),
+    INDEX idx_ativo (ativo),
+    FOREIGN KEY (prova_id) REFERENCES provas(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (disciplina_id) REFERENCES disciplinas(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =========================
--- 9. ANSWERS (respostas)
--- =========================
-CREATE TABLE attempt_answers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    attempt_id INT NOT NULL,
-    item_id INT NOT NULL,
-    user_answer VARCHAR(5),
-    is_correct BOOLEAN,
-    response_time_ms INT,
-    FOREIGN KEY (attempt_id) REFERENCES attempts(id) ON DELETE CASCADE,
-    FOREIGN KEY (item_id) REFERENCES question_items(id) ON DELETE CASCADE
-);
+-- Tabela: proposicoes
+CREATE TABLE proposicoes (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    questao_id INT UNSIGNED NOT NULL,
+    numero_ordem SMALLINT UNSIGNED NOT NULL,
+    texto TEXT NOT NULL,
+    resposta_oficial ENUM('C', 'E', 'X') NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY unq_questao_ordem (questao_id, numero_ordem),
+    FOREIGN KEY (questao_id) REFERENCES questoes(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_attempt_answers_attempt ON attempt_answers(attempt_id);
-CREATE INDEX idx_attempt_answers_item ON attempt_answers(item_id);
+-- Tabela: usuarios
+CREATE TABLE usuarios (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    email VARCHAR(255) NOT NULL,
+    senha_hash VARCHAR(255) NOT NULL,
+    nome VARCHAR(100) NULL,
+    premium_ate DATE NULL,
+    ativo TINYINT(1) DEFAULT 1,
+    data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY unq_email (email)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =========================
--- 10. STATS (estatísticas)
--- =========================
-CREATE TABLE question_stats (
-    item_id INT PRIMARY KEY,
-    total_answers INT DEFAULT 0,
-    total_correct INT DEFAULT 0,
-    FOREIGN KEY (item_id) REFERENCES question_items(id) ON DELETE CASCADE
-);
+-- Tabela: respostas_usuarios
+CREATE TABLE respostas_usuarios (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    usuario_id INT UNSIGNED NOT NULL,
+    proposicao_id INT UNSIGNED NOT NULL,
+    resposta ENUM('C', 'E') NOT NULL,
+    data_resposta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY unq_usuario_proposicao (usuario_id, proposicao_id),
+    INDEX idx_usuario (usuario_id),
+    INDEX idx_proposicao (proposicao_id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (proposicao_id) REFERENCES proposicoes(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =========================
--- 11. TAGS (futuro)
--- =========================
-CREATE TABLE tags (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) UNIQUE
-);
+-- -----------------------------------------------------
+-- 4. Inserir dados iniciais (opcional)
+-- -----------------------------------------------------
 
-CREATE TABLE question_tags (
-    item_id INT,
-    tag_id INT,
-    PRIMARY KEY (item_id, tag_id),
-    FOREIGN KEY (item_id) REFERENCES question_items(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-);
+-- Inserir uma banca de exemplo
+INSERT INTO bancas (nome) VALUES ('CACD / CEBRASPE') 
+ON DUPLICATE KEY UPDATE nome = nome;
+
+-- Inserir disciplinas de exemplo
+INSERT INTO disciplinas (nome) VALUES 
+('LÍNGUA PORTUGUESA'),
+('HISTÓRIA DO BRASIL'),
+('HISTÓRIA MUNDIAL'),
+('GEOGRAFIA'),
+('LÍNGUA INGLESA'),
+('POLÍTICA INTERNACIONAL'),
+('DIREITO')
+ON DUPLICATE KEY UPDATE nome = nome;
+
+-- -----------------------------------------------------
+-- 5. Verificar se tudo foi criado corretamente
+-- -----------------------------------------------------
+SHOW TABLES;
+SELECT 'Banco de dados criado com sucesso!' AS Status;

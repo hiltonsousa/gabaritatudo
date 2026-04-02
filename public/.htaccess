@@ -1,0 +1,41 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Se o arquivo/diretório existe, serve diretamente
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Redireciona tudo para index.php
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>
+
+# Proteger arquivos PHP de visualização (opcional)
+<FilesMatch "\.(php|inc)$">
+    Require all granted
+</FilesMatch>
+
+# Prevenir listagem de diretórios
+Options -Indexes
+
+# Proteger arquivos sensíveis
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+<FilesMatch "\.(env|ini|log|sql|bak|sh|config)$">
+    Require all denied
+</FilesMatch>
+
+# Compressão
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json
+</IfModule>
+
+# Cache para assets estáticos
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+</IfModule>
