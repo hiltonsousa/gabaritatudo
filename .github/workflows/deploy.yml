@@ -2,7 +2,7 @@ name: Deploy DEV
 
 on:
   push:
-    branches: [ dev ] # Ou 'master', se for o caso
+    branches: [ dev ] 
 
 jobs:
   deploy:
