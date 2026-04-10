@@ -8,7 +8,7 @@ $limit = 20;
 
 $questaoModel = new AdminQuestao();
 $questoes = $questaoModel->getAllWithRelations($page, $limit);
-$total = $questaoModel->getTotalCount();
+$total = $questaoModel->getTotalCountAdmin(); 
 $totalPages = ceil($total / $limit);
 ?>
 <!DOCTYPE html>
