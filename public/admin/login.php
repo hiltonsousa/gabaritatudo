@@ -1,6 +1,6 @@
 <?php
 // admin/login.php
-require_once dirname(__DIR__) . '/app/bootstrap.php';
+require_once dirname(__DIR__, 2) . '/app/bootstrap.php';
 
 if (Auth::isLoggedIn()) {
     header('Location: /admin/');
