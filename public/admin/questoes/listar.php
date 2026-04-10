@@ -1,6 +1,6 @@
 <?php
 // admin/questoes/listar.php
-require_once dirname(__DIR__, 2) . '/app/bootstrap.php';
+require_once dirname(__DIR__, 3) . '/app/bootstrap.php';
 Auth::requireAdmin();
 
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
