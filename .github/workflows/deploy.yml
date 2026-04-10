@@ -17,7 +17,7 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
 
-      # Conecta ao Droplet e executa os comandos de deploy
+      # Conecta ao Droplet e executa os comandos de deploy.
       - name: Deploy to Droplet
         uses: appleboy/ssh-action@v1.0.3
         with:
