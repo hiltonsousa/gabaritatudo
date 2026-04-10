@@ -55,29 +55,6 @@ DEALLOCATE PREPARE stmt;
 FLUSH PRIVILEGES;
 
 -- -----------------------------------------------------
--- 1. Criar o banco de dados
--- -----------------------------------------------------
-CREATE DATABASE IF NOT EXISTS sistema_questoes
-CHARACTER SET utf8mb4
-COLLATE utf8mb4_unicode_ci;
-
-USE sistema_questoes;
-
--- -----------------------------------------------------
--- 2. Criar o usuário do sistema (com senha)
--- -----------------------------------------------------
--- Cria o usuário (troque 'senha_segura' por uma senha forte)
-CREATE USER IF NOT EXISTS 'app_questoes'@'localhost' 
-IDENTIFIED BY '8&t|YOAc5e2o7/7{2';
-
--- Concede privilégios para o usuário no banco
-GRANT SELECT, INSERT, UPDATE, DELETE ON sistema_questoes.* 
-TO 'app_questoes'@'localhost';
-
--- Aplica as permissões
-FLUSH PRIVILEGES;
-
--- -----------------------------------------------------
 -- 3. Criar as tabelas
 -- -----------------------------------------------------
 
@@ -200,3 +177,6 @@ ON DUPLICATE KEY UPDATE nome = nome;
 -- -----------------------------------------------------
 SHOW TABLES;
 SELECT 'Banco de dados criado com sucesso!' AS Status;
+
+ALTER TABLE usuarios ADD COLUMN is_admin TINYINT(1) DEFAULT 0;
+ALTER TABLE usuarios ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
