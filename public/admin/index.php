@@ -1,6 +1,6 @@
 <?php
 // admin/index.php (dashboard principal)
-require_once dirname(__DIR__) . '/app/bootstrap.php';
+require_once dirname(__DIR__, 2) . '/app/bootstrap.php';
 Auth::requireAdmin();
 
 $adminController = new AdminController();
