@@ -26,12 +26,60 @@ class AdminQuestao extends Questao {
         return $stmt->fetchAll();
     }
     
-    // CORRIGIDO: Agora com a mesma assinatura da classe pai
+    // Método sobrescrito com a mesma assinatura da classe pai
     public function getTotalCount($disciplinaId = null, $ano = null, $bancaId = null) {
-        // Ignorar os filtros para o admin (mostrar todas as questões)
+        // Para o admin, ignoramos os filtros e retornamos o total geral
         $sql = "SELECT COUNT(*) as total FROM questoes";
         $stmt = $this->db->query($sql);
         $result = $stmt->fetch();
         return $result['total'];
+    }
+    
+    // Método adicional para criar questão
+    public function create($data) {
+        $sql = "INSERT INTO questoes (prova_id, disciplina_id, texto, referencia, julgue, ativo) 
+                VALUES (:prova_id, :disciplina_id, :texto, :referencia, :julgue, :ativo)";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            'prova_id' => $data['prova_id'],
+            'disciplina_id' => $data['disciplina_id'],
+            'texto' => $data['texto'],
+            'referencia' => $data['referencia'] ?? null,
+            'julgue' => $data['julgue'] ?? null,
+            'ativo' => $data['ativo'] ?? 1
+        ]);
+        
+        return $this->db->lastInsertId();
+    }
+    
+    // Método adicional para atualizar questão
+    public function update($id, $data) {
+        $sql = "UPDATE questoes SET 
+                    prova_id = :prova_id,
+                    disciplina_id = :disciplina_id,
+                    texto = :texto,
+                    referencia = :referencia,
+                    julgue = :julgue,
+                    ativo = :ativo
+                WHERE id = :id";
+        
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            'id' => $id,
+            'prova_id' => $data['prova_id'],
+            'disciplina_id' => $data['disciplina_id'],
+            'texto' => $data['texto'],
+            'referencia' => $data['referencia'] ?? null,
+            'julgue' => $data['julgue'] ?? null,
+            'ativo' => $data['ativo'] ?? 1
+        ]);
+    }
+    
+    // Método adicional para excluir questão
+    public function delete($id) {
+        $sql = "DELETE FROM questoes WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(['id' => $id]);
     }
 }
