@@ -1,3 +1,59 @@
+-- =========================================
+-- CONFIGURAÇÃO DO AMBIENTE
+-- =========================================
+
+SET @env = 'dev'; -- 'prod' ou 'dev'
+
+SET @db_name = IF(@env = 'prod', 'sistema_questoes', 'sistema_questoes_dev');
+SET @db_user = IF(@env = 'prod', 'app_questoes', 'app_questoes_dev');
+SET @db_pass = IF(@env = 'prod', '8&t|YOAc5e2o7/7{2', 'bP64nq$v0J~X||');
+
+-- =========================================
+-- CRIAR DATABASE
+-- =========================================
+
+SET @query = CONCAT('
+CREATE DATABASE IF NOT EXISTS ', @db_name, '
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- =========================================
+-- USAR DATABASE
+-- =========================================
+
+SET @query = CONCAT('USE ', @db_name, ';');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- =========================================
+-- CRIAR USUÁRIO
+-- =========================================
+
+SET @query = CONCAT(
+"CREATE USER IF NOT EXISTS '", @db_user, "'@'localhost' IDENTIFIED BY '", @db_pass, "';"
+);
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- =========================================
+-- PERMISSÕES
+-- =========================================
+
+SET @query = CONCAT(
+"GRANT SELECT, INSERT, UPDATE, DELETE ON ", @db_name, ".* TO '", @db_user, "'@'localhost';"
+);
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+FLUSH PRIVILEGES;
+
 -- -----------------------------------------------------
 -- 1. Criar o banco de dados
 -- -----------------------------------------------------
