@@ -1,0 +1,35 @@
+<IfModule mod_ssl.c>
+<VirtualHost *:443>
+    ServerName gabaritatudo.com.br
+    ServerAlias gabaritatudo.com.br
+
+    ServerAdmin admin@gabaritatudo.com.br
+    DocumentRoot /var/www/gabaritatudo.com.br/public
+
+    DirectoryIndex index.php
+
+    <Directory /var/www/gabaritatudo.com.br/public>
+        AllowOverride All
+        Require all granted
+        Options -Indexes
+    </Directory>
+
+<FilesMatch \.php$>
+    SetHandler "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost/"
+</FilesMatch>
+
+    ErrorLog ${APACHE_LOG_DIR}/gabaritatudo_error.log
+    CustomLog ${APACHE_LOG_DIR}/gabaritatudo_access.log combined
+RewriteEngine On
+# Some rewrite rules in this file were disabled on your HTTPS site,
+# because they have the potential to create redirection loops.
+
+# RewriteCond %{HTTPS} !=on
+# RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+Include /etc/letsencrypt/options-ssl-apache.conf
+ServerAlias www.gabaritatudo.com.br
+SSLCertificateFile /etc/letsencrypt/live/gabaritatudo.com.br/fullchain.pem
+SSLCertificateKeyFile /etc/letsencrypt/live/gabaritatudo.com.br/privkey.pem
+</VirtualHost>
+</IfModule>

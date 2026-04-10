@@ -1,0 +1,29 @@
+<VirtualHost *:80>
+    ServerName gabaritatudo.com.br
+    ServerAlias gabaritatudo.com.br
+
+    ServerAdmin admin@gabaritatudo.com.br
+    DocumentRoot /var/www/gabaritatudo.com.br/public
+
+    DirectoryIndex index.php
+
+    <Directory /var/www/gabaritatudo.com.br/public>
+        AllowOverride All
+        Require all granted
+        Options -Indexes
+    </Directory>
+
+    <FilesMatch \.php$>
+        SetHandler "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost/"
+    </FilesMatch>
+
+    ErrorLog ${APACHE_LOG_DIR}/gabaritatudo_error.log
+    CustomLog ${APACHE_LOG_DIR}/gabaritatudo_access.log combined
+    
+    RewriteEngine On
+    RewriteCond %{HTTPS} !=on
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    RewriteCond %{SERVER_NAME} =gabaritatudo.com.br [OR]
+    RewriteCond %{SERVER_NAME} =www.gabaritatudo.com.br
+    RewriteRule ^ https://%{SERVER_NAME}%{REQUEST_URI} [END,NE,R=permanent]
+</VirtualHost>
