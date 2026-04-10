@@ -1,0 +1,36 @@
+name: Deploy DEV
+
+on:
+  push:
+    branches: [ dev ] # Ou 'master', se for o caso
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Configura a chave SSH no ambiente do GitHub Actions
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+
+      # Conecta ao Droplet e executa os comandos de deploy
+      - name: Deploy to Droplet
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DO_HOST }}
+          username: ${{ secrets.DO_USER }}
+          key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          script: |
+            # Navegue para a pasta do seu projeto no servidor
+            cd /var/www/dev.gabaritatudo.com.br
+            
+            # Puxe as últimas alterações do git
+            git pull origin dev
+            
+            chown -R www-data:www-data /var/www/dev.gabaritatudo.com.br
+            
+            echo "Deploy concluído com sucesso!"
