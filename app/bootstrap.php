@@ -49,3 +49,8 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Configurar timezone
 date_default_timezone_set('America/Sao_Paulo');
+
+$authFile = __DIR__ . '/helpers/Auth.php';
+if (file_exists($authFile)) {
+    require_once $authFile;
+}

@@ -1,0 +1,8 @@
+# public/admin/.htaccess
+<FilesMatch "\.(php)$">
+    # Prevenir acesso direto a arquivos .php sem passar pelo bootstrap
+    # Mas como estamos usando require_once, não é estritamente necessário
+</FilesMatch>
+
+# Prevenir listagem de diretórios
+Options -Indexes
