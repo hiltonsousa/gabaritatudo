@@ -26,6 +26,9 @@ jobs:
           username: ${{ secrets.DO_USER }}
           key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
           script: |
+            # Fix git ownership issue
+            git config --global --add safe.directory /var/www/dev.gabaritatudo.com.br
+
             # Navegue para a pasta do seu projeto no servidor
             cd /var/www/dev.gabaritatudo.com.br
             
@@ -33,5 +36,9 @@ jobs:
             git pull origin dev
             
             chown -R www-data:www-data /var/www/dev.gabaritatudo.com.br
+            chmod -R 755 /var/www/dev.gabaritatudo.com.br
+
+            systemctl restart php8.2-fpm
+            systemctl restart apache2
             
             echo "Deploy concluído com sucesso!"
