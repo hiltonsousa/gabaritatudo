@@ -19,7 +19,7 @@ jobs:
             
             git pull origin dev
             
-            systemctl restart php8.2-fpm
-            systemctl restart apache2
+            sudo systemctl restart php8.2-fpm
+            sudo systemctl restart apache2
             
             echo "Deploy concluído com sucesso..."
