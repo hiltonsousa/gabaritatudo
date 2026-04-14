@@ -16,6 +16,7 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.DO_SSH_PRIVATE_KEY }}
+          log-public-key: false
 
       # Conecta ao Droplet e executa os comandos de deploy.
       - name: Deploy to Droplet
