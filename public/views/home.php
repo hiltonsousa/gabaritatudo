@@ -451,8 +451,8 @@
                                         <label><input type="radio" name="prop_${prop.id}" value="C"> Certo</label>
                                         <label><input type="radio" name="prop_${prop.id}" value="E"> Errado</label>
                                     ` : `
-                                        <label><input type="radio" name="prop_${prop.id}" value="C"> Opção correta</label>
-                                        <label><input type="radio" name="prop_${prop.id}" value="E"> Opção incorreta</label>
+                                        <label><input type="radio" name="prop_${prop.id}" value="C"> Certo</label>
+                                        <label><input type="radio" name="prop_${prop.id}" value="E"> Errado</label>
                                     `}
                                 </div>
                             </div>
