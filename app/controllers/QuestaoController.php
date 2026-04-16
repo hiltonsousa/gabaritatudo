@@ -46,4 +46,19 @@ class QuestaoController {
             echo json_encode(['success' => false, 'error' => 'Questão não encontrada']);
         }
     }
+
+    public function apiListarRandom() {
+        $disciplinaId = isset($_GET['disciplina_id']) ? (int)$_GET['disciplina_id'] : null;
+        $ano = isset($_GET['ano']) ? (int)$_GET['ano'] : null;
+        $bancaId = isset($_GET['banca_id']) ? (int)$_GET['banca_id'] : null;
+        $limit = isset($_GET['limit']) ? min((int)$_GET['limit'], 500) : 100;
+        
+        $questoes = $this->questaoModel->getAllRandom($disciplinaId, $ano, $bancaId, $limit);
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $questoes,
+            'total' => count($questoes)
+        ]);
+    }
 }

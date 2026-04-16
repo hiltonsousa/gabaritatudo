@@ -27,7 +27,6 @@
             padding: 20px;
         }
         
-        /* Header */
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -40,7 +39,6 @@
             font-size: 1.8rem;
         }
         
-        /* Filtros */
         .filters {
             background: white;
             padding: 20px;
@@ -93,41 +91,21 @@
             background: #5a67d8;
         }
         
-        /* Questões */
-        .questions-container {
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-        }
-        
-        .question-card {
+        .question-container {
             background: white;
             border-radius: 12px;
-            padding: 25px;
+            padding: 30px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        
-        .question-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        
-        .question-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 20px;
         }
         
         .question-meta {
             display: flex;
             gap: 15px;
             flex-wrap: wrap;
-            font-size: 0.85rem;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
         }
         
         .badge {
@@ -136,6 +114,7 @@
             padding: 4px 12px;
             border-radius: 20px;
             font-weight: 600;
+            font-size: 0.85rem;
         }
         
         .badge-year {
@@ -157,42 +136,140 @@
         }
         
         .proposition {
-            margin: 12px 0;
-            padding: 10px;
+            margin: 15px 0;
+            padding: 15px;
             background: #f9f9f9;
             border-radius: 8px;
             border-left: 4px solid #667eea;
+            transition: all 0.3s;
+        }
+        
+        .proposition.correct {
+            background: #c6f6d5;
+            border-left-color: #38a169;
+        }
+        
+        .proposition.incorrect {
+            background: #fed7d7;
+            border-left-color: #e53e3e;
         }
         
         .proposition-text {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+            font-weight: 500;
         }
         
         .proposition-options {
             display: flex;
-            gap: 15px;
+            gap: 20px;
+            margin-top: 10px;
         }
         
         .proposition-options label {
             display: inline-flex;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
             cursor: pointer;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        
+        .proposition-options label:hover {
+            background: #e2e8f0;
         }
         
         .proposition-options input {
             cursor: pointer;
+            width: 18px;
+            height: 18px;
         }
         
-        .question-footer {
-            margin-top: 15px;
-            padding-top: 10px;
-            border-top: 1px solid #f0f0f0;
+        .feedback {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 6px;
             font-size: 0.85rem;
-            color: #888;
+            display: none;
         }
         
-        /* Loading */
+        .feedback.show {
+            display: block;
+        }
+        
+        .feedback.correct {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .feedback.incorrect {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #38a169;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #2f855a;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #718096;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4a5568;
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .progress {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            background: #edf2f7;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #4a5568;
+        }
+        
         .loading {
             text-align: center;
             padding: 40px;
@@ -200,65 +277,6 @@
             color: #666;
         }
         
-        /* Pagination */
-        .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-top: 30px;
-            flex-wrap: wrap;
-        }
-        
-        .pagination button {
-            padding: 10px 15px;
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .pagination button:hover:not(:disabled) {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-        
-        .pagination button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .pagination .active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
-        }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-            
-            .filters {
-                flex-direction: column;
-            }
-            
-            .filter-group button {
-                margin-top: 0;
-            }
-            
-            .question-card {
-                padding: 15px;
-            }
-            
-            .question-meta {
-                font-size: 0.75rem;
-            }
-        }
-        
-        /* Ad container */
         .ad-container {
             text-align: center;
             margin: 20px 0;
@@ -272,6 +290,32 @@
             color: #999;
             margin-bottom: 5px;
         }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .filters {
+                flex-direction: column;
+            }
+            
+            .filter-group button {
+                margin-top: 0;
+            }
+            
+            .question-container {
+                padding: 20px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -283,7 +327,6 @@
     </div>
     
     <div class="container">
-        <!-- Filtros -->
         <div class="filters">
             <div class="filter-group">
                 <label>📖 Disciplina</label>
@@ -311,21 +354,15 @@
             </div>
         </div>
         
-        <!-- Ad Container Top -->
         <div class="ad-container" id="adTop" style="display: none;">
             <div class="ad-label">Publicidade</div>
             <div id="googleAdTop"></div>
         </div>
         
-        <!-- Questões -->
-        <div id="questionsContainer" class="questions-container">
+        <div id="questionArea">
             <div class="loading">Carregando questões...</div>
         </div>
         
-        <!-- Paginação -->
-        <div id="pagination" class="pagination"></div>
-        
-        <!-- Ad Container Bottom -->
         <div class="ad-container" id="adBottom" style="display: none;">
             <div class="ad-label">Publicidade</div>
             <div id="googleAdBottom"></div>
@@ -333,22 +370,22 @@
     </div>
     
     <script>
-        let currentPage = 1;
-        let totalPages = 1;
+        let questions = [];
+        let currentIndex = 0;
         let currentFilters = {
             disciplina_id: '',
             ano: '',
             banca_id: ''
         };
+        let userAnswers = {};
+        let validated = false;
         
-        // Carregar opções de filtro
         async function loadFilters() {
             try {
                 const response = await fetch('/api/filtros');
                 const data = await response.json();
                 
                 if (data.success) {
-                    // Disciplinas
                     const disciplinaSelect = document.getElementById('disciplinaFilter');
                     data.data.disciplinas.forEach(disciplina => {
                         const option = document.createElement('option');
@@ -357,7 +394,6 @@
                         disciplinaSelect.appendChild(option);
                     });
                     
-                    // Anos
                     const anoSelect = document.getElementById('anoFilter');
                     data.data.anos.forEach(ano => {
                         const option = document.createElement('option');
@@ -366,7 +402,6 @@
                         anoSelect.appendChild(option);
                     });
                     
-                    // Bancas
                     const bancaSelect = document.getElementById('bancaFilter');
                     data.data.bancas.forEach(banca => {
                         const option = document.createElement('option');
@@ -380,15 +415,14 @@
             }
         }
         
-        // Carregar questões
         async function loadQuestions() {
-            const container = document.getElementById('questionsContainer');
-            container.innerHTML = '<div class="loading">Carregando questões...</div>';
+            const area = document.getElementById('questionArea');
+            area.innerHTML = '<div class="loading">Carregando questões...</div>';
             
             try {
                 const params = new URLSearchParams({
-                    page: currentPage,
-                    limit: 10,
+                    page: 1,
+                    limit: 1000,
                     ...currentFilters
                 });
                 
@@ -396,140 +430,222 @@
                 const data = await response.json();
                 
                 if (data.success && data.data.length > 0) {
-                    displayQuestions(data.data);
-                    setupPagination(data.pagination);
+                    questions = shuffleArray(data.data);
+                    currentIndex = 0;
+                    userAnswers = {};
+                    validated = false;
+                    displayCurrentQuestion();
                 } else {
-                    container.innerHTML = '<div class="loading">Nenhuma questão encontrada com os filtros selecionados.</div>';
-                    document.getElementById('pagination').innerHTML = '';
+                    area.innerHTML = '<div class="loading">Nenhuma questão encontrada com os filtros selecionados.</div>';
                 }
             } catch (error) {
                 console.error('Erro ao carregar questões:', error);
-                container.innerHTML = '<div class="loading">Erro ao carregar questões. Tente novamente.</div>';
+                area.innerHTML = '<div class="loading">Erro ao carregar questões. Tente novamente.</div>';
             }
         }
         
-        // Exibir questões
-        function displayQuestions(questions) {
-            const container = document.getElementById('questionsContainer');
-            container.innerHTML = '';
-            
-            questions.forEach((question, index) => {
-                const card = document.createElement('div');
-                card.className = 'question-card';
-                
-                // Determinar tipo de questão
-                const isSingleProposition = question.total_proposicoes === 1;
-                const propositionType = isSingleProposition ? 'Certo ou Errado' : 'Única opção correta';
-                
-                card.innerHTML = `
-                    <div class="question-header">
-                        <div class="question-meta">
-                            <span class="badge">${question.disciplina_nome}</span>
-                            <span class="badge badge-year">${question.ano}</span>
-                            ${question.banca_nome ? `<span class="badge">${question.banca_nome}</span>` : ''}
-                            <span class="badge">${propositionType}</span>
-                        </div>
-                    </div>
-                    
-                    ${question.referencia ? `<div class="question-reference">${question.referencia}</div>` : ''}
-                    
-                    <div class="question-text">
-                        <strong>Questão ${index + 1}:</strong><br>
-                        ${question.texto}
-                    </div>
-                    
-                    ${question.julgue ? `<div class="question-reference">${question.julgue}</div>` : ''}
-                    
-                    <div class="propositions">
-                        ${question.proposicoes.map(prop => `
-                            <div class="proposition">
-                                <div class="proposition-text">
-                                    <strong>${prop.numero_ordem}.</strong> ${prop.texto}
-                                </div>
-                                <div class="proposition-options">
-                                    ${isSingleProposition ? `
-                                        <label><input type="radio" name="prop_${prop.id}" value="C"> Certo</label>
-                                        <label><input type="radio" name="prop_${prop.id}" value="E"> Errado</label>
-                                    ` : `
-                                        <label><input type="radio" name="prop_${prop.id}" value="C"> Certo</label>
-                                        <label><input type="radio" name="prop_${prop.id}" value="E"> Errado</label>
-                                    `}
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                    
-                    <div class="question-footer">
-                        <small>Selecione uma opção para cada proposição e confira o gabarito oficial.</small>
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+        
+        function displayCurrentQuestion() {
+            if (currentIndex >= questions.length) {
+                document.getElementById('questionArea').innerHTML = `
+                    <div class="question-container">
+                        <h2>🎉 Parabéns!</h2>
+                        <p>Você completou todas as questões!</p>
+                        <button class="btn btn-primary" onclick="resetQuestions()">Recomeçar</button>
                     </div>
                 `;
+                return;
+            }
+            
+            const question = questions[currentIndex];
+            const isSingleProposition = question.total_proposicoes === 1;
+            
+            let html = `
+                <div class="question-container">
+                    <div class="question-meta">
+                        <span class="badge">${escapeHtml(question.disciplina_nome)}</span>
+                        <span class="badge badge-year">${question.ano}</span>
+                        ${question.banca_nome ? `<span class="badge">${escapeHtml(question.banca_nome)}</span>` : ''}
+                        <span class="badge">${isSingleProposition ? 'Certo ou Errado' : 'Múltipla escolha'}</span>
+                    </div>
+                    
+                    ${question.referencia ? `<div class="question-reference">${escapeHtml(question.referencia)}</div>` : ''}
+                    
+                    <div class="question-text">
+                        ${escapeHtml(question.texto)}
+                    </div>
+                    
+                    ${question.julgue ? `<div class="question-reference"><strong>Julgue:</strong> ${escapeHtml(question.julgue)}</div>` : ''}
+                    
+                    <div class="propositions">
+            `;
+            
+            question.proposicoes.forEach(prop => {
+                const savedAnswer = userAnswers[prop.id];
+                const isCorrect = savedAnswer && validated && savedAnswer === prop.resposta_oficial;
+                const isIncorrect = savedAnswer && validated && savedAnswer !== prop.resposta_oficial && prop.resposta_oficial !== 'X';
                 
-                container.appendChild(card);
+                let propositionClass = '';
+                if (validated) {
+                    if (isCorrect) propositionClass = 'correct';
+                    if (isIncorrect) propositionClass = 'incorrect';
+                }
+                
+                html += `
+                    <div class="proposition ${propositionClass}" data-prop-id="${prop.id}">
+                        <div class="proposition-text">
+                            <strong>${prop.numero_ordem}.</strong> ${escapeHtml(prop.texto)}
+                        </div>
+                        <div class="proposition-options">
+                            <label>
+                                <input type="radio" name="prop_${prop.id}" value="C" 
+                                    ${savedAnswer === 'C' ? 'checked' : ''}
+                                    ${validated ? 'disabled' : ''}>
+                                Certo
+                            </label>
+                            <label>
+                                <input type="radio" name="prop_${prop.id}" value="E" 
+                                    ${savedAnswer === 'E' ? 'checked' : ''}
+                                    ${validated ? 'disabled' : ''}>
+                                Errado
+                            </label>
+                        </div>
+                        <div class="feedback ${validated ? 'show' : ''} ${isCorrect ? 'correct' : (isIncorrect ? 'incorrect' : '')}">
+                            ${validated ? getFeedbackMessage(prop, savedAnswer) : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                    
+                    <div class="action-buttons">
+                        ${!validated ? `<button class="btn btn-success" onclick="validateAnswers()">✅ Validar Respostas</button>` : ''}
+                        <button class="btn btn-primary" onclick="nextQuestion()" ${!validated && currentIndex < questions.length - 1 ? 'disabled' : ''}>▶ Próxima Questão</button>
+                    </div>
+                    
+                    <div class="progress">
+                        Questão ${currentIndex + 1} de ${questions.length}
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('questionArea').innerHTML = html;
+            
+            if (!validated) {
+                attachRadioListeners();
+            }
+        }
+        
+        function attachRadioListeners() {
+            const question = questions[currentIndex];
+            question.proposicoes.forEach(prop => {
+                const radios = document.querySelectorAll(`input[name="prop_${prop.id}"]`);
+                radios.forEach(radio => {
+                    radio.addEventListener('change', (e) => {
+                        if (!validated) {
+                            userAnswers[prop.id] = e.target.value;
+                        }
+                    });
+                });
             });
         }
         
-        // Configurar paginação
-        function setupPagination(pagination) {
-            const paginationDiv = document.getElementById('pagination');
-            paginationDiv.innerHTML = '';
+        function validateAnswers() {
+            const question = questions[currentIndex];
+            let hasAllAnswers = true;
             
-            totalPages = pagination.total_pages;
-            
-            // Botão anterior
-            const prevButton = document.createElement('button');
-            prevButton.textContent = '« Anterior';
-            prevButton.disabled = currentPage === 1;
-            prevButton.onclick = () => {
-                if (currentPage > 1) {
-                    currentPage--;
-                    loadQuestions();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+            question.proposicoes.forEach(prop => {
+                if (!userAnswers[prop.id]) {
+                    hasAllAnswers = false;
                 }
-            };
-            paginationDiv.appendChild(prevButton);
+            });
             
-            // Números das páginas (limitado a 5)
-            let startPage = Math.max(1, currentPage - 2);
-            let endPage = Math.min(totalPages, startPage + 4);
-            
-            for (let i = startPage; i <= endPage; i++) {
-                const pageButton = document.createElement('button');
-                pageButton.textContent = i;
-                pageButton.className = i === currentPage ? 'active' : '';
-                pageButton.onclick = () => {
-                    currentPage = i;
-                    loadQuestions();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                };
-                paginationDiv.appendChild(pageButton);
+            if (!hasAllAnswers) {
+                alert('Por favor, responda todas as proposições antes de validar.');
+                return;
             }
             
-            // Botão próximo
-            const nextButton = document.createElement('button');
-            nextButton.textContent = 'Próximo »';
-            nextButton.disabled = currentPage === totalPages;
-            nextButton.onclick = () => {
-                if (currentPage < totalPages) {
-                    currentPage++;
-                    loadQuestions();
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-            };
-            paginationDiv.appendChild(nextButton);
+            validated = true;
+            displayCurrentQuestion();
+            
+            // Mostrar anúncio após validação (a cada 3 questões)
+            const questionNumber = currentIndex + 1;
+            if (questionNumber % 3 === 0 && window.innerWidth <= 768) {
+                showFullscreenAd();
+            }
         }
         
-        // Aplicar filtros
+        function getFeedbackMessage(prop, userAnswer) {
+            if (prop.resposta_oficial === 'X') {
+                return '⚠️ Esta proposição foi anulada pela banca.';
+            }
+            
+            const isCorrect = userAnswer === prop.resposta_oficial;
+            const expectedText = prop.resposta_oficial === 'C' ? 'Certo' : 'Errado';
+            
+            if (isCorrect) {
+                return '✅ Correto! Parabéns.';
+            } else {
+                return `❌ Incorreto. A resposta correta é: ${expectedText}.`;
+            }
+        }
+        
+        function nextQuestion() {
+            if (!validated && currentIndex < questions.length - 1) {
+                alert('Você precisa validar suas respostas antes de avançar.');
+                return;
+            }
+            
+            currentIndex++;
+            validated = false;
+            
+            if (currentIndex < questions.length) {
+                displayCurrentQuestion();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                displayCurrentQuestion();
+            }
+        }
+        
+        function resetQuestions() {
+            questions = shuffleArray(questions);
+            currentIndex = 0;
+            userAnswers = {};
+            validated = false;
+            displayCurrentQuestion();
+        }
+        
+        function showFullscreenAd() {
+            // Placeholder para anúncio de tela cheia
+            console.log('Mostrar anúncio de tela cheia');
+            // Implementar com Google AdSense ou similar
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
         document.getElementById('applyFilters').addEventListener('click', () => {
             currentFilters = {
                 disciplina_id: document.getElementById('disciplinaFilter').value,
                 ano: document.getElementById('anoFilter').value,
                 banca_id: document.getElementById('bancaFilter').value
             };
-            currentPage = 1;
             loadQuestions();
         });
         
-        // Inicializar
         loadFilters();
         loadQuestions();
     </script>

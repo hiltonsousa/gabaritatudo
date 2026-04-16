@@ -48,6 +48,19 @@ switch ($request) {
             echo json_encode(['error' => 'Controller não encontrado']);
         }
         break;
+
+    case '/api/questoes/random':
+        // API para listar questões em ordem aleatória
+        header('Content-Type: application/json');
+        header('Access-Control-Allow-Origin: *');
+        
+        if (class_exists('QuestaoController')) {
+            $controller = new QuestaoController();
+            $controller->apiListarRandom();
+        } else {
+            echo json_encode(['error' => 'Controller não encontrado']);
+        }
+        break;
         
     default:
         // Verificar se é arquivo estático (css, js, imagens)
