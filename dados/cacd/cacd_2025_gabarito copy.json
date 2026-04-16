@@ -1,17 +1,3 @@
-Nós estamos projetando um sistema web que vai apresentar ao usuário provas fechadas, com múltiplas questões. 
-Cada questão terá um texto e uma ou mais proposições.
-Questões com uma proposição são do tipo "certo" ou "errado"
-Questões com mais de uma proposição são do tipo "apenas opção está certa"
-Cada questão tem associada: autor/banca (opcional), ano (opcional), disciplina (obrigatorio)
-Ao acessar o site, o usuário filtra por disciplina, ano, autor/banca, e tem acesso às questões
-por enquanto, vou cadastrar apenas questoes das várias provas do concurso para o itamaraty, mas futuramente terei provas de diversos concursos e mesmo provas para alunos do ensino fundamental, médio e superior estudarem
-A ideia inicial é monetizar com propagandas do google (por exemplo, mostrando uma propaganda de tela cheia a cada 3 questoes em telas pequenas, e mostrando uma propaganda por questao no rodapé em telas grandes)
-a monetizacao futura poderá ser feita mediante pagamento, usuario/senha e remoçao das propagandas 
-backend: servidor ubuntu 22, apache, mysql, php 
-frontend: html e javascript puro, responsivo
-
-segue o exemplo de uma prova do itamaraty
-
 {
   "year": 2025,
   "author": "CACD / CEBRASPE",
@@ -139,10 +125,45 @@ segue o exemplo de uma prova do itamaraty
               "answer": "C"
             }
           ]
+        },
+        {
+          "text": "Estruturas sociais e pol\u00edticas criadas no per\u00edodo colonial e mantidas em grande parte pelo regime mon\u00e1rquico n\u00e3o foram combatidas pela elite olig\u00e1rquica republicana que ajudou a derrubar a Monarquia, pois, em grande parte, ela mesma se beneficiava dessas estruturas arcaicas.",
+          "reference": "Marcos Napolitano. Hist\u00f3ria do Brasil Rep\u00fablica: da queda da Monarquia ao fim do Estado Novo. S\u00e3o Paulo: Contexto, 2017, p.8 (com adapta\u00e7\u00f5es).",
+          "judge": "Tendo o fragmento de texto acima como refer\u00eancia inicial acerca do processo hist\u00f3rico brasileiro relativo \u00e0 coloniza\u00e7\u00e3o, ao Imp\u00e9rio e \u00e0 Rep\u00fablica, julgue:",
+          "items": [
+            {
+              "id": 46,
+              "item": "Algumas das estruturas que sustentaram o projeto de coloniza\u00e7\u00e3o portuguesa do Brasil, a partir da primeira metade do s\u00e9culo XVI, n\u00e3o foram rompidas pela Independ\u00eancia, a exemplo da escravid\u00e3o e da concentra\u00e7\u00e3o fundi\u00e1ria, do que se pode concluir que o processo de independ\u00eancia n\u00e3o foi revolucion\u00e1rio.",
+              "answer": "C"
+            },
+            {
+              "id": 47,
+              "item": "Infere-se do texto que a implanta\u00e7\u00e3o da Rep\u00fablica, em fins do s\u00e9culo XIX, representou uma substancial inflex\u00e3o na hist\u00f3ria brasileira, por n\u00e3o promover a ruptura com os elementos que sustentaram a coloniza\u00e7\u00e3o e que, em larga medida, se mantiveram no Imp\u00e9rio, o que significou atraso no desenvolvimento do pa\u00eds em rela\u00e7\u00e3o aos seus vizinhos na Am\u00e9rica do Sul.",
+              "answer": "E"
+            },
+            {
+              "id": 48,
+              "item": "O 15 de Novembro de 1889 foi um golpe de Estado conduzido por militares, os quais, desprovidos de uma base social que lhes desse sustenta\u00e7\u00e3o pol\u00edtica, foram alijados do poder j\u00e1 nos primeiros anos do regime republicano.",
+              "answer": "E"
+            },
+            {
+              "id": 49,
+              "item": "O \u00faltimo expressivo acontecimento do Imp\u00e9rio foi a aboli\u00e7\u00e3o da escravid\u00e3o, em 1888, decis\u00e3o que n\u00e3o rompia com as estruturas coloniais de explora\u00e7\u00e3o do trabalho e de discrimina\u00e7\u00e3o, uma vez que n\u00e3o foi acompanhada de medidas que efetivamente propiciassem a incorpora\u00e7\u00e3o dos antigos escravos \u00e0 cidadania, o que explica, em larga medida, a manuten\u00e7\u00e3o do quadro de exclus\u00e3o e desigualdade que se arrastou no per\u00edodo republicano.",
+              "answer": "C"
+            },
+            {
+              "id": 50,
+              "item": "No campo da pol\u00edtica externa ap\u00f3s a instaura\u00e7\u00e3o da Rep\u00fablica, a diplomacia brasileira rompeu com a tradi\u00e7\u00e3o de desempenhar papel decisivo na evolu\u00e7\u00e3o hist\u00f3rica do pa\u00eds, abstendo-se de atuar em momentos importantes como os que marcaram a inser\u00e7\u00e3o comercial do pa\u00eds no mundo, os fluxos migrat\u00f3rios, a defini\u00e7\u00e3o de fronteiras e a consequente consolida\u00e7\u00e3o da unidade territorial do pa\u00eds, o que s\u00f3 foi retomado com o protagonismo do Brasil em quest\u00f5es internacionais no in\u00edcio do s\u00e9culo XXI.",
+              "answer": "E"
+            },
+            {
+              "id": 51,
+              "item": "No in\u00edcio do s\u00e9culo XX, sob a lideran\u00e7a do Bar\u00e3o de Rio Branco, foram conclu\u00eddas negocia\u00e7\u00f5es com a Bol\u00edvia que resultaram na anexa\u00e7\u00e3o do territ\u00f3rio acreano ao Brasil, tendo o processo inclu\u00eddo o pagamento de uma indeniza\u00e7\u00e3o e a constru\u00e7\u00e3o da ferrovia Madeira-Mamor\u00e9.",
+              "answer": "C"
+            }
+          ]
         }
       ]
     }
   ]
 }
-
-vamos projetar o banco? 

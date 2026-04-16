@@ -1,0 +1,2401 @@
+=== ESTRUTURA DO PROJETO ===
+
+📁 ./
+ 📁 __hdn/
+ 📁 app/
+  📁 config/
+  📁 controllers/
+  📁 helpers/
+  📁 models/
+ 📁 dados/
+  📁 cacd/
+ 📁 public/
+  📁 admin/
+   📁 questoes/
+  📁 api/
+  📁 assets/
+   📁 css/
+   📁 images/
+   📁 js/
+  📁 views/
+ 📁 scripts/
+ 📁 src/
+
+=== CONTEÚDO DOS ARQUIVOS ===
+
+
+=========================================
+📄 ./app/bootstrap.php
+=========================================
+```php
+<?php
+
+// Carregar configurações do banco
+require_once __DIR__ . '/config/database.php';
+
+// Autoloader simples para classes
+spl_autoload_register(function ($class_name) {
+    $paths = [
+        __DIR__ . '/models/',
+        __DIR__ . '/controllers/',
+        __DIR__ . '/helpers/'
+    ];
+    
+    foreach ($paths as $path) {
+        $file = $path . $class_name . '.php';
+        if (file_exists($file)) {
+            require_once $file;
+            return;
+        }
+    }
+});
+
+// Carregar helpers
+$helpersFile = __DIR__ . '/helpers/functions.php';
+if (file_exists($helpersFile)) {
+    require_once $helpersFile;
+}
+
+// Configurar sessão segura
+if (session_status() === PHP_SESSION_NONE) {
+    // Configurar diretório de sessões
+    $sessionPath = dirname(__DIR__) . '/storage/sessions';
+    if (!is_dir($sessionPath)) {
+        mkdir($sessionPath, 0755, true);
+    }
+    ini_set('session.save_path', $sessionPath);
+    
+    // Configurações de segurança da sessão
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.use_only_cookies', 1);
+    ini_set('session.cookie_samesite', 'Strict');
+    
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+        ini_set('session.cookie_secure', 1);
+    }
+    
+    session_start();
+}
+
+// Configurar timezone
+date_default_timezone_set('America/Sao_Paulo');
+
+$authFile = __DIR__ . '/helpers/Auth.php';
+if (file_exists($authFile)) {
+    require_once $authFile;
+}
+```
+
+=========================================
+📄 ./app/config/database.php
+=========================================
+```php
+<?php
+
+// Carregar variáveis do arquivo .env (fora da pasta public)
+$envFile = dirname(__DIR__, 2) . '/.env';
+if (file_exists($envFile)) {
+    $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        // Pular comentários e linhas vazias
+        if (strpos(trim($line), '#') === 0 || empty(trim($line))) {
+            continue;
+        }
+        
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            
+            // Remover aspas se existirem
+            $value = trim($value, '"\'');
+            
+            putenv("$key=$value");
+            $_ENV[$key] = $value;
+        }
+    }
+}
+
+// Definir constantes com fallback
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_NAME', getenv('DB_NAME') ?: 'sistema_questoes');
+define('DB_USER', getenv('DB_USER') ?: 'app_questoes');
+define('DB_PASS', getenv('DB_PASS') ?: '');
+define('DB_CHARSET', getenv('DB_CHARSET') ?: 'utf8mb4');
+
+define('APP_DEBUG', getenv('APP_DEBUG') === 'true');
+define('APP_ENV', getenv('APP_ENV') ?: 'production');
+
+// Configuração de erro baseada no ambiente
+if (!APP_DEBUG) {
+    error_reporting(0);
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+    ini_set('error_log', dirname(__DIR__, 2) . '/storage/logs/error.log');
+} else {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+}
+
+// Classe Database
+class Database {
+    private static $instance = null;
+    private $pdo;
+    
+    private function __construct() {
+        try {
+            $this->pdo = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+                DB_USER,
+                DB_PASS,
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_EMULATE_PREPARES => false
+                ]
+            );
+        } catch (PDOException $e) {
+            $this->logError($e->getMessage());
+            throw new Exception("Erro ao conectar ao banco de dados");
+        }
+    }
+    
+    private function logError($message) {
+        $logFile = dirname(__DIR__, 2) . '/storage/logs/error.log';
+        $timestamp = date('Y-m-d H:i:s');
+        $logMessage = "[$timestamp] Erro de conexão DB: $message" . PHP_EOL;
+        
+        // Garantir que o diretório de logs existe
+        $logDir = dirname($logFile);
+        if (!is_dir($logDir)) {
+            mkdir($logDir, 0755, true);
+        }
+        
+        file_put_contents($logFile, $logMessage, FILE_APPEND);
+    }
+    
+    public static function getInstance() {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+    
+    public function getConnection() {
+        return $this->pdo;
+    }
+    
+    // Testar conexão (útil para debugging)
+    public function testConnection() {
+        try {
+            $stmt = $this->pdo->query("SELECT 1");
+            return true;
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+}
+?>
+```
+
+=========================================
+📄 ./app/controllers/AdminController.php
+=========================================
+```php
+<?php
+// app/controllers/AdminController.php
+class AdminController {
+    
+    public function getStats() {
+        $db = Database::getInstance()->getConnection();
+        
+        $stats = [];
+        
+        // Total de questões
+        $stmt = $db->query("SELECT COUNT(*) as total FROM questoes");
+        $stats['total_questoes'] = $stmt->fetch()['total'];
+        
+        // Total de provas
+        $stmt = $db->query("SELECT COUNT(*) as total FROM provas");
+        $stats['total_provas'] = $stmt->fetch()['total'];
+        
+        // Total de disciplinas
+        $stmt = $db->query("SELECT COUNT(*) as total FROM disciplinas");
+        $stats['total_disciplinas'] = $stmt->fetch()['total'];
+        
+        // Total de usuários
+        $stmt = $db->query("SELECT COUNT(*) as total FROM usuarios");
+        $stats['total_usuarios'] = $stmt->fetch()['total'];
+        
+        return $stats;
+    }
+}
+```
+
+=========================================
+📄 ./app/controllers/FiltroController.php
+=========================================
+```php
+<?php
+// app/controllers/FiltroController.php
+class FiltroController {
+    private $disciplinaModel;
+    private $provaModel;
+    private $bancaModel;
+    
+    public function __construct() {
+        $this->disciplinaModel = new Disciplina();
+        $this->provaModel = new Prova();
+        $this->bancaModel = new Banca();
+    }
+    
+    public function getOpcoes() {
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'disciplinas' => $this->disciplinaModel->getAll(),
+                'anos' => $this->provaModel->getAnosDisponiveis(),
+                'bancas' => $this->bancaModel->getAll()
+            ]
+        ]);
+    }
+}
+```
+
+=========================================
+📄 ./app/controllers/QuestaoController.php
+=========================================
+```php
+<?php
+// app/controllers/QuestaoController.php
+class QuestaoController {
+    private $questaoModel;
+    
+    public function __construct() {
+        $this->questaoModel = new Questao();
+    }
+    
+    public function apiListar() {
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+        $offset = ($page - 1) * $limit;
+        
+        $disciplinaId = isset($_GET['disciplina_id']) ? (int)$_GET['disciplina_id'] : null;
+        $ano = isset($_GET['ano']) ? (int)$_GET['ano'] : null;
+        $bancaId = isset($_GET['banca_id']) ? (int)$_GET['banca_id'] : null;
+        
+        $questoes = $this->questaoModel->getWithFilters($disciplinaId, $ano, $bancaId, $limit, $offset);
+        $total = $this->questaoModel->getTotalCount($disciplinaId, $ano, $bancaId);
+        
+        // Carregar proposições para cada questão
+        foreach ($questoes as &$questao) {
+            $questao['proposicoes'] = $this->questaoModel->getProposicoes($questao['id']);
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $questoes,
+            'pagination' => [
+                'current_page' => $page,
+                'per_page' => $limit,
+                'total' => $total,
+                'total_pages' => ceil($total / $limit)
+            ]
+        ]);
+    }
+    
+    public function apiGetSingle($id) {
+        $questao = $this->questaoModel->getSingleWithProposicoes($id);
+        
+        if ($questao) {
+            echo json_encode(['success' => true, 'data' => $questao]);
+        } else {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'error' => 'Questão não encontrada']);
+        }
+    }
+}
+```
+
+=========================================
+📄 ./app/helpers/AdminQuestao.php
+=========================================
+```php
+<?php
+// app/models/AdminQuestao.php
+class AdminQuestao extends Questao {
+    
+    public function create($data) {
+        $sql = "INSERT INTO questoes (prova_id, disciplina_id, texto, referencia, julgue, ativo) 
+                VALUES (:prova_id, :disciplina_id, :texto, :referencia, :julgue, :ativo)";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            'prova_id' => $data['prova_id'],
+            'disciplina_id' => $data['disciplina_id'],
+            'texto' => $data['texto'],
+            'referencia' => $data['referencia'] ?? null,
+            'julgue' => $data['julgue'] ?? null,
+            'ativo' => $data['ativo'] ?? 1
+        ]);
+        
+        return $this->db->lastInsertId();
+    }
+    
+    public function update($id, $data) {
+        $sql = "UPDATE questoes SET 
+                    prova_id = :prova_id,
+                    disciplina_id = :disciplina_id,
+                    texto = :texto,
+                    referencia = :referencia,
+                    julgue = :julgue,
+                    ativo = :ativo
+                WHERE id = :id";
+        
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            'id' => $id,
+            'prova_id' => $data['prova_id'],
+            'disciplina_id' => $data['disciplina_id'],
+            'texto' => $data['texto'],
+            'referencia' => $data['referencia'] ?? null,
+            'julgue' => $data['julgue'] ?? null,
+            'ativo' => $data['ativo'] ?? 1
+        ]);
+    }
+    
+    public function delete($id) {
+        $sql = "DELETE FROM questoes WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(['id' => $id]);
+    }
+    
+    public function getAllWithRelations($page = 1, $limit = 20) {
+        $offset = ($page - 1) * $limit;
+        
+        $sql = "SELECT q.*, 
+                       d.nome as disciplina_nome,
+                       p.ano,
+                       p.nome as prova_nome,
+                       b.nome as banca_nome,
+                       (SELECT COUNT(*) FROM proposicoes WHERE questao_id = q.id) as total_proposicoes
+                FROM questoes q
+                JOIN disciplinas d ON q.disciplina_id = d.id
+                JOIN provas p ON q.prova_id = p.id
+                LEFT JOIN bancas b ON p.banca_id = b.id
+                ORDER BY q.id DESC
+                LIMIT :limit OFFSET :offset";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue('offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        return $stmt->fetchAll();
+    }
+    
+    public function getTotalCount() {
+        $sql = "SELECT COUNT(*) as total FROM questoes";
+        $stmt = $this->db->query($sql);
+        $result = $stmt->fetch();
+        return $result['total'];
+    }
+}
+```
+
+=========================================
+📄 ./app/helpers/Auth.php
+=========================================
+```php
+<?php
+// app/helpers/Auth.php
+class Auth {
+    
+    public static function login($email, $senha) {
+        $database = Database::getInstance();
+        $db = $database->getConnection();
+        
+        $sql = "SELECT * FROM usuarios WHERE email = :email AND ativo = 1 LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->execute(['email' => $email]);
+        $usuario = $stmt->fetch();
+        
+        if ($usuario && password_verify($senha, $usuario['senha_hash'])) {
+            $_SESSION['usuario_id'] = $usuario['id'];
+            $_SESSION['usuario_email'] = $usuario['email'];
+            $_SESSION['usuario_nome'] = $usuario['nome'];
+            $_SESSION['is_admin'] = $usuario['is_admin'];
+            return true;
+        }
+        
+        return false;
+    }
+    
+    public static function logout() {
+        $_SESSION = array();
+        if (ini_get("session.use_cookies")) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000,
+                $params["path"], $params["domain"],
+                $params["secure"], $params["httponly"]
+            );
+        }
+        session_destroy();
+    }
+    
+    public static function isLoggedIn() {
+        return isset($_SESSION['usuario_id']);
+    }
+    
+    public static function isAdmin() {
+        return isset($_SESSION['is_admin']) && $_SESSION['is_admin'] == 1;
+    }
+    
+    public static function requireLogin() {
+        if (!self::isLoggedIn()) {
+            header('Location: /admin/login.php');
+            exit();
+        }
+    }
+    
+    public static function requireAdmin() {
+        self::requireLogin();
+        if (!self::isAdmin()) {
+            header('HTTP/1.0 403 Forbidden');
+            die('Acesso negado. Você não tem permissão de administrador.');
+        }
+    }
+    
+    public static function getCurrentUser() {
+        if (self::isLoggedIn()) {
+            return [
+                'id' => $_SESSION['usuario_id'],
+                'email' => $_SESSION['usuario_email'],
+                'nome' => $_SESSION['usuario_nome']
+            ];
+        }
+        return null;
+    }
+}
+```
+
+=========================================
+📄 ./app/helpers/functions.php
+=========================================
+```php
+<?php
+
+// Debug seguro (só mostra se APP_DEBUG = true)
+function debug($data, $die = false) {
+    if (APP_DEBUG) {
+        echo '<pre>';
+        var_dump($data);
+        echo '</pre>';
+        if ($die) die();
+    }
+}
+
+// Sanitizar input
+function sanitize($input) {
+    return htmlspecialchars(strip_tags(trim($input)), ENT_QUOTES, 'UTF-8');
+}
+
+// Gerar CSRF token
+function generateCsrfToken() {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+// Verificar CSRF token
+function verifyCsrfToken($token) {
+    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
+
+// Redirecionar
+function redirect($url) {
+    header("Location: $url");
+    exit();
+}
+
+// Log de erros personalizado
+function logError($message, $context = []) {
+    $logFile = dirname(__DIR__, 2) . '/storage/logs/error.log';
+    $timestamp = date('Y-m-d H:i:s');
+    $contextStr = !empty($context) ? ' | Context: ' . json_encode($context) : '';
+    $logMessage = "[$timestamp] $message$contextStr" . PHP_EOL;
+    
+    file_put_contents($logFile, $logMessage, FILE_APPEND);
+}
+```
+
+=========================================
+📄 ./app/models/AdminQuestao.php
+=========================================
+```php
+<?php
+// /var/www/dev.gabaritatudo.com.br/app/models/AdminQuestao.php
+class AdminQuestao extends Questao {
+    
+    public function getAllWithRelations($page = 1, $limit = 20) {
+        $offset = ($page - 1) * $limit;
+        
+        $sql = "SELECT q.*, 
+                       d.nome as disciplina_nome,
+                       p.ano,
+                       p.nome as prova_nome,
+                       b.nome as banca_nome,
+                       (SELECT COUNT(*) FROM proposicoes WHERE questao_id = q.id) as total_proposicoes
+                FROM questoes q
+                JOIN disciplinas d ON q.disciplina_id = d.id
+                JOIN provas p ON q.prova_id = p.id
+                LEFT JOIN bancas b ON p.banca_id = b.id
+                ORDER BY q.id DESC
+                LIMIT :limit OFFSET :offset";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue('limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue('offset', $offset, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        return $stmt->fetchAll();
+    }
+    
+    // Método sobrescrito com a mesma assinatura da classe pai
+    public function getTotalCount($disciplinaId = null, $ano = null, $bancaId = null) {
+        // Para o admin, ignoramos os filtros e retornamos o total geral
+        $sql = "SELECT COUNT(*) as total FROM questoes";
+        $stmt = $this->db->query($sql);
+        $result = $stmt->fetch();
+        return $result['total'];
+    }
+    
+    // Método adicional para criar questão
+    public function create($data) {
+        $sql = "INSERT INTO questoes (prova_id, disciplina_id, texto, referencia, julgue, ativo) 
+                VALUES (:prova_id, :disciplina_id, :texto, :referencia, :julgue, :ativo)";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            'prova_id' => $data['prova_id'],
+            'disciplina_id' => $data['disciplina_id'],
+            'texto' => $data['texto'],
+            'referencia' => $data['referencia'] ?? null,
+            'julgue' => $data['julgue'] ?? null,
+            'ativo' => $data['ativo'] ?? 1
+        ]);
+        
+        return $this->db->lastInsertId();
+    }
+    
+    // Método adicional para atualizar questão
+    public function update($id, $data) {
+        $sql = "UPDATE questoes SET 
+                    prova_id = :prova_id,
+                    disciplina_id = :disciplina_id,
+                    texto = :texto,
+                    referencia = :referencia,
+                    julgue = :julgue,
+                    ativo = :ativo
+                WHERE id = :id";
+        
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            'id' => $id,
+            'prova_id' => $data['prova_id'],
+            'disciplina_id' => $data['disciplina_id'],
+            'texto' => $data['texto'],
+            'referencia' => $data['referencia'] ?? null,
+            'julgue' => $data['julgue'] ?? null,
+            'ativo' => $data['ativo'] ?? 1
+        ]);
+    }
+    
+    // Método adicional para excluir questão
+    public function delete($id) {
+        $sql = "DELETE FROM questoes WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(['id' => $id]);
+    }
+}
+```
+
+=========================================
+📄 ./app/models/Banca.php
+=========================================
+```php
+<?php
+// app/models/Banca.php
+class Banca extends Model {
+    protected $table = 'bancas';
+    
+    public function getAll() {
+        return $this->findAll('nome ASC');
+    }
+}
+```
+
+=========================================
+📄 ./app/models/Disciplina.php
+=========================================
+```php
+<?php
+// app/models/Disciplina.php
+class Disciplina extends Model {
+    protected $table = 'disciplinas';
+    
+    public function getAll() {
+        return $this->findAll('nome ASC');
+    }
+}
+```
+
+=========================================
+📄 ./app/models/Model.php
+=========================================
+```php
+<?php
+// app/models/Model.php (classe base)
+abstract class Model {
+    protected $db;
+    protected $table;
+    
+    public function __construct() {
+        $database = Database::getInstance();
+        $this->db = $database->getConnection();
+    }
+    
+    public function findAll($orderBy = null) {
+        $sql = "SELECT * FROM {$this->table}";
+        if ($orderBy) {
+            $sql .= " ORDER BY $orderBy";
+        }
+        $stmt = $this->db->query($sql);
+        return $stmt->fetchAll();
+    }
+    
+    public function findById($id) {
+        $sql = "SELECT * FROM {$this->table} WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        return $stmt->fetch();
+    }
+}
+```
+
+=========================================
+📄 ./app/models/Proposicao.php
+=========================================
+```php
+<?php
+// app/models/Proposicao.php
+class Proposicao extends Model {
+    protected $table = 'proposicoes';
+    
+    public function create($data) {
+        $sql = "INSERT INTO proposicoes (questao_id, numero_ordem, texto, resposta_oficial) 
+                VALUES (:questao_id, :numero_ordem, :texto, :resposta_oficial)";
+        
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            'questao_id' => $data['questao_id'],
+            'numero_ordem' => $data['numero_ordem'],
+            'texto' => $data['texto'],
+            'resposta_oficial' => $data['resposta_oficial']
+        ]);
+    }
+    
+    public function update($id, $data) {
+        $sql = "UPDATE proposicoes SET 
+                    numero_ordem = :numero_ordem,
+                    texto = :texto,
+                    resposta_oficial = :resposta_oficial
+                WHERE id = :id";
+        
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            'id' => $id,
+            'numero_ordem' => $data['numero_ordem'],
+            'texto' => $data['texto'],
+            'resposta_oficial' => $data['resposta_oficial']
+        ]);
+    }
+    
+    public function deleteByQuestao($questaoId) {
+        $sql = "DELETE FROM proposicoes WHERE questao_id = :questao_id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(['questao_id' => $questaoId]);
+    }
+    
+    public function getByQuestao($questaoId) {
+        $sql = "SELECT * FROM proposicoes WHERE questao_id = :questao_id ORDER BY numero_ordem ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['questao_id' => $questaoId]);
+        return $stmt->fetchAll();
+    }
+}
+```
+
+=========================================
+📄 ./app/models/Prova.php
+=========================================
+```php
+<?php
+// app/models/Prova.php
+class Prova extends Model {
+    protected $table = 'provas';
+    
+    public function getAll() {
+        $sql = "SELECT p.*, b.nome as banca_nome 
+                FROM provas p 
+                LEFT JOIN bancas b ON p.banca_id = b.id 
+                ORDER BY p.ano DESC, p.nome ASC";
+        $stmt = $this->db->query($sql);
+        return $stmt->fetchAll();
+    }
+    
+    public function getAnosDisponiveis() {
+        $sql = "SELECT DISTINCT ano FROM provas ORDER BY ano DESC";
+        $stmt = $this->db->query($sql);
+        return $stmt->fetchAll();
+    }
+}
+```
+
+=========================================
+📄 ./app/models/Questao.php
+=========================================
+```php
+<?php
+// app/models/Questao.php
+class Questao extends Model {
+    protected $table = 'questoes';
+    
+    public function getWithFilters($disciplinaId = null, $ano = null, $bancaId = null, $limit = 20, $offset = 0) {
+        $sql = "SELECT q.*, 
+                       d.nome as disciplina_nome,
+                       p.ano,
+                       b.nome as banca_nome,
+                       (SELECT COUNT(*) FROM proposicoes WHERE questao_id = q.id) as total_proposicoes
+                FROM questoes q
+                JOIN disciplinas d ON q.disciplina_id = d.id
+                JOIN provas p ON q.prova_id = p.id
+                LEFT JOIN bancas b ON p.banca_id = b.id
+                WHERE q.ativo = 1";
+        
+        $params = [];
+        
+        if ($disciplinaId) {
+            $sql .= " AND q.disciplina_id = :disciplina_id";
+            $params['disciplina_id'] = $disciplinaId;
+        }
+        
+        if ($ano) {
+            $sql .= " AND p.ano = :ano";
+            $params['ano'] = $ano;
+        }
+        
+        if ($bancaId) {
+            $sql .= " AND p.banca_id = :banca_id";
+            $params['banca_id'] = $bancaId;
+        }
+        
+        $sql .= " ORDER BY p.ano DESC, q.id ASC LIMIT :limit OFFSET :offset";
+        $params['limit'] = $limit;
+        $params['offset'] = $offset;
+        
+        $stmt = $this->db->prepare($sql);
+        
+        foreach ($params as $key => &$val) {
+            $type = is_int($val) ? PDO::PARAM_INT : PDO::PARAM_STR;
+            $stmt->bindValue($key, $val, $type);
+        }
+        
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
+    
+    public function getTotalCount($disciplinaId = null, $ano = null, $bancaId = null) {
+        $sql = "SELECT COUNT(*) as total 
+                FROM questoes q
+                JOIN provas p ON q.prova_id = p.id
+                WHERE q.ativo = 1";
+        
+        $params = [];
+        
+        if ($disciplinaId) {
+            $sql .= " AND q.disciplina_id = :disciplina_id";
+            $params['disciplina_id'] = $disciplinaId;
+        }
+        
+        if ($ano) {
+            $sql .= " AND p.ano = :ano";
+            $params['ano'] = $ano;
+        }
+        
+        if ($bancaId) {
+            $sql .= " AND p.banca_id = :banca_id";
+            $params['banca_id'] = $bancaId;
+        }
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $result = $stmt->fetch();
+        return $result['total'];
+    }
+    
+    public function getProposicoes($questaoId) {
+        $sql = "SELECT * FROM proposicoes 
+                WHERE questao_id = :questao_id 
+                ORDER BY numero_ordem ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['questao_id' => $questaoId]);
+        return $stmt->fetchAll();
+    }
+    
+    public function getSingleWithProposicoes($questaoId) {
+        $sql = "SELECT q.*, 
+                       d.nome as disciplina_nome,
+                       p.ano,
+                       b.nome as banca_nome
+                FROM questoes q
+                JOIN disciplinas d ON q.disciplina_id = d.id
+                JOIN provas p ON q.prova_id = p.id
+                LEFT JOIN bancas b ON p.banca_id = b.id
+                WHERE q.id = :id AND q.ativo = 1";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['id' => $questaoId]);
+        $questao = $stmt->fetch();
+        
+        if ($questao) {
+            $questao['proposicoes'] = $this->getProposicoes($questaoId);
+        }
+        
+        return $questao;
+    }
+}
+```
+
+=========================================
+📄 ./public/admin/index.php
+=========================================
+```php
+<?php
+// admin/index.php (dashboard principal)
+require_once dirname(__DIR__, 2) . '/app/bootstrap.php';
+Auth::requireAdmin();
+
+$adminController = new AdminController();
+$stats = $adminController->getStats();
+?>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Admin Gabarita Tudo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            height: 100%;
+            background: #2d3748;
+            color: white;
+            padding: 20px 0;
+        }
+        
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #4a5568;
+            margin-bottom: 20px;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 1.2rem;
+        }
+        
+        .sidebar-header p {
+            font-size: 0.85rem;
+            color: #a0aec0;
+            margin-top: 5px;
+        }
+        
+        .nav-item {
+            padding: 12px 20px;
+            color: #cbd5e0;
+            text-decoration: none;
+            display: block;
+            transition: all 0.3s;
+        }
+        
+        .nav-item:hover {
+            background: #4a5568;
+            color: white;
+        }
+        
+        .nav-item.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .main-content {
+            margin-left: 260px;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .logout-btn {
+            background: #e53e3e;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: background 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: #c53030;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .quick-actions {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .quick-actions h3 {
+            margin-bottom: 15px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #38a169;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>📚 Gabarita Tudo</h2>
+            <p>Painel Administrativo</p>
+        </div>
+        
+        <nav>
+            <a href="/admin/" class="nav-item active">📊 Dashboard</a>
+            <a href="/admin/questoes/listar.php" class="nav-item">📝 Questões</a>
+            <a href="/admin/provas/listar.php" class="nav-item">📖 Provas</a>
+            <a href="/admin/disciplinas/listar.php" class="nav-item">📚 Disciplinas</a>
+            <a href="/admin/bancas/listar.php" class="nav-item">🏛️ Bancas</a>
+        </nav>
+    </div>
+    
+    <div class="main-content">
+        <div class="header">
+            <h1>Dashboard</h1>
+            <a href="/admin/logout.php" class="logout-btn">Sair</a>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total de Questões</h3>
+                <div class="stat-number"><?php echo $stats['total_questoes']; ?></div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Total de Provas</h3>
+                <div class="stat-number"><?php echo $stats['total_provas']; ?></div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Total de Disciplinas</h3>
+                <div class="stat-number"><?php echo $stats['total_disciplinas']; ?></div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Total de Usuários</h3>
+                <div class="stat-number"><?php echo $stats['total_usuarios']; ?></div>
+            </div>
+        </div>
+        
+        <div class="quick-actions">
+            <h3>Ações Rápidas</h3>
+            <div class="action-buttons">
+                <a href="/admin/questoes/cadastrar.php" class="btn btn-primary">➕ Nova Questão</a>
+                <a href="/admin/provas/cadastrar.php" class="btn btn-primary">📖 Nova Prova</a>
+                <a href="/admin/disciplinas/cadastrar.php" class="btn btn-secondary">📚 Nova Disciplina</a>
+                <a href="/admin/bancas/cadastrar.php" class="btn btn-secondary">🏛️ Nova Banca</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+```
+
+=========================================
+📄 ./public/admin/login.php
+=========================================
+```php
+<?php
+// admin/login.php
+require_once dirname(__DIR__, 2) . '/app/bootstrap.php';
+
+if (Auth::isLoggedIn()) {
+    header('Location: /admin/');
+    exit();
+}
+
+$error = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $email = $_POST['email'] ?? '';
+    $senha = $_POST['senha'] ?? '';
+    
+    if (Auth::login($email, $senha)) {
+        header('Location: /admin/');
+        exit();
+    } else {
+        $error = 'Email ou senha inválidos';
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Gabarita Tudo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        h1 {
+            margin-bottom: 10px;
+            color: #333;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #5a67d8;
+        }
+        
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>🔐 Admin Login</h1>
+        <div class="subtitle">Gabarita Tudo - Painel Administrativo</div>
+        
+        <?php if ($error): ?>
+            <div class="error"><?php echo $error; ?></div>
+        <?php endif; ?>
+        
+        <form method="POST">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" required autofocus>
+            </div>
+            
+            <div class="form-group">
+                <label>Senha</label>
+                <input type="password" name="senha" required>
+            </div>
+            
+            <button type="submit">Entrar</button>
+        </form>
+    </div>
+</body>
+</html>
+```
+
+=========================================
+📄 ./public/admin/logout.php
+=========================================
+```php
+<?php
+// public/admin/logout.php
+require_once dirname(__DIR__, 2) . '/app/bootstrap.php';
+Auth::logout();
+header('Location: login.php');
+exit();
+```
+
+=========================================
+📄 ./public/admin/questoes/listar.php
+=========================================
+```php
+<?php
+// admin/questoes/listar.php
+require_once dirname(__DIR__, 3) . '/app/bootstrap.php';
+Auth::requireAdmin();
+
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$limit = 20;
+
+$questaoModel = new AdminQuestao();
+$questoes = $questaoModel->getAllWithRelations($page, $limit);
+$total = $questaoModel->getTotalCount(); 
+$totalPages = ceil($total / $limit);
+?>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Questões - Admin Gabarita Tudo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            height: 100%;
+            background: #2d3748;
+            color: white;
+            padding: 20px 0;
+        }
+        
+        .sidebar-header {
+            padding: 0 20px 20px;
+            border-bottom: 1px solid #4a5568;
+            margin-bottom: 20px;
+        }
+        
+        .sidebar-header h2 {
+            font-size: 1.2rem;
+        }
+        
+        .nav-item {
+            padding: 12px 20px;
+            color: #cbd5e0;
+            text-decoration: none;
+            display: block;
+            transition: all 0.3s;
+        }
+        
+        .nav-item:hover, .nav-item.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .main-content {
+            margin-left: 260px;
+            padding: 20px;
+        }
+        
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a67d8;
+        }
+        
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c53030;
+        }
+        
+        .btn-warning {
+            background: #ed8936;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #dd6b20;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            overflow-x: auto;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        tr:hover {
+            background: #f7fafc;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .badge-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .badge-warning {
+            background: #fed7aa;
+            color: #9c4221;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .actions a {
+            padding: 4px 8px;
+            font-size: 0.85rem;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .pagination a, .pagination span {
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            text-decoration: none;
+            color: #4a5568;
+        }
+        
+        .pagination .active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .search-box {
+            margin-bottom: 20px;
+        }
+        
+        .search-box input {
+            padding: 10px;
+            width: 300px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h2>📚 Gabarita Tudo</h2>
+            <p>Painel Administrativo</p>
+        </div>
+        
+        <nav>
+            <a href="/admin/" class="nav-item">📊 Dashboard</a>
+            <a href="/admin/questoes/listar.php" class="nav-item active">📝 Questões</a>
+            <a href="/admin/provas/listar.php" class="nav-item">📖 Provas</a>
+            <a href="/admin/disciplinas/listar.php" class="nav-item">📚 Disciplinas</a>
+            <a href="/admin/bancas/listar.php" class="nav-item">🏛️ Bancas</a>
+        </nav>
+    </div>
+    
+    <div class="main-content">
+        <div class="header">
+            <h1>Gerenciar Questões</h1>
+            <a href="/admin/questoes/cadastrar.php" class="btn btn-primary">+ Nova Questão</a>
+        </div>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Texto (resumo)</th>
+                        <th>Disciplina</th>
+                        <th>Prova</th>
+                        <th>Proposições</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($questoes as $questao): ?>
+                    <tr>
+                        <td><?php echo $questao['id']; ?></td>
+                        <td><?php echo htmlspecialchars(substr($questao['texto'], 0, 100)) . '...'; ?></td>
+                        <td><?php echo htmlspecialchars($questao['disciplina_nome']); ?></td>
+                        <td><?php echo $questao['ano'] . ' - ' . htmlspecialchars($questao['prova_nome'] ?? 'Sem nome'); ?></td>
+                        <td><?php echo $questao['total_proposicoes']; ?></td>
+                        <td>
+                            <span class="badge <?php echo $questao['ativo'] ? 'badge-success' : 'badge-warning'; ?>">
+                                <?php echo $questao['ativo'] ? 'Ativo' : 'Inativo'; ?>
+                            </span>
+                        </td>
+                        <td class="actions">
+                            <a href="/admin/questoes/editar.php?id=<?php echo $questao['id']; ?>" class="btn-warning" style="padding: 4px 8px;">✏️ Editar</a>
+                            <a href="/admin/questoes/excluir.php?id=<?php echo $questao['id']; ?>" class="btn-danger" style="padding: 4px 8px;" onclick="return confirm('Tem certeza que deseja excluir esta questão?')">🗑️ Excluir</a>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        
+        <?php if ($totalPages > 1): ?>
+        <div class="pagination">
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <?php if ($i == $page): ?>
+                    <span class="active"><?php echo $i; ?></span>
+                <?php else: ?>
+                    <a href="?page=<?php echo $i; ?>"><?php echo $i; ?></a>
+                <?php endif; ?>
+            <?php endfor; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+</body>
+</html>
+```
+
+=========================================
+📄 ./public/index.php
+=========================================
+```php
+<?php
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Carregar bootstrap (fora da pasta public)
+require_once dirname(__DIR__) . '/app/bootstrap.php';
+
+// Roteamento simples
+$request = $_SERVER['REQUEST_URI'];
+$method = $_SERVER['REQUEST_METHOD'];
+
+// Remover query string e base path
+$request = strtok($request, '?');
+$request = str_replace('/index.php', '', $request);
+$request = $request ?: '/';
+
+// Rotas da aplicação
+switch ($request) {
+    case '/':
+    case '/home':
+        // Página inicial com filtros
+        require_once __DIR__ . '/views/home.php';
+        break;
+        
+    case '/api/questoes':
+        // API para listar questões
+        header('Content-Type: application/json');
+        header('Access-Control-Allow-Origin: *');
+        
+        if (class_exists('QuestaoController')) {
+            $controller = new QuestaoController();
+            $controller->apiListar();
+        } else {
+            echo json_encode(['error' => 'Controller não encontrado']);
+        }
+        break;
+        
+    case '/api/filtros':
+        // API para obter opções de filtro
+        header('Content-Type: application/json');
+        
+        if (class_exists('FiltroController')) {
+            $controller = new FiltroController();
+            $controller->getOpcoes();
+        } else {
+            echo json_encode(['error' => 'Controller não encontrado']);
+        }
+        break;
+        
+    default:
+        // Verificar se é arquivo estático (css, js, imagens)
+        $file = __DIR__ . $request;
+        if (file_exists($file) && !is_dir($file)) {
+            return false; // Deixa o Apache servir o arquivo
+        }
+        
+        // Página não encontrada
+        http_response_code(404);
+        require_once __DIR__ . '/views/404.php';
+        break;
+}
+```
+
+=========================================
+📄 ./public/views/404.php
+=========================================
+```php
+<?php
+// public/views/404.php
+?>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Página não encontrada - Gabarita Tudo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 50px;
+            background: #f5f5f5;
+        }
+        .error-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            max-width: 500px;
+            margin: 0 auto;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { font-size: 6rem; margin: 0; color: #667eea; }
+        p { color: #666; margin: 20px 0; }
+        a { color: #667eea; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1>404</h1>
+        <p>Ops! A página que você procura não foi encontrada.</p>
+        <a href="/">← Voltar para o início</a>
+    </div>
+</body>
+</html>
+```
+
+=========================================
+📄 ./public/views/home.php
+=========================================
+```php
+<?php
+// public/views/home.php
+?>
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Sistema de Questões - Gabarita Tudo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 1.8rem;
+        }
+        
+        /* Filtros */
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            flex: 1;
+            min-width: 150px;
+        }
+        
+        .filter-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        
+        .filter-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .filter-group button {
+            width: 100%;
+            padding: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 22px;
+        }
+        
+        .filter-group button:hover {
+            background: #5a67d8;
+        }
+        
+        /* Questões */
+        .questions-container {
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+        }
+        
+        .question-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .question-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .question-meta {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            font-size: 0.85rem;
+        }
+        
+        .badge {
+            background: #e0e7ff;
+            color: #4c51bf;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        
+        .badge-year {
+            background: #fed7aa;
+            color: #9c4221;
+        }
+        
+        .question-text {
+            font-size: 1rem;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .question-reference {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+        
+        .proposition {
+            margin: 12px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .proposition-text {
+            margin-bottom: 10px;
+        }
+        
+        .proposition-options {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .proposition-options label {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        .proposition-options input {
+            cursor: pointer;
+        }
+        
+        .question-footer {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #f0f0f0;
+            font-size: 0.85rem;
+            color: #888;
+        }
+        
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+            color: #666;
+        }
+        
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .pagination button {
+            padding: 10px 15px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .pagination button:hover:not(:disabled) {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .pagination .active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .filters {
+                flex-direction: column;
+            }
+            
+            .filter-group button {
+                margin-top: 0;
+            }
+            
+            .question-card {
+                padding: 15px;
+            }
+            
+            .question-meta {
+                font-size: 0.75rem;
+            }
+        }
+        
+        /* Ad container */
+        .ad-container {
+            text-align: center;
+            margin: 20px 0;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        
+        .ad-label {
+            font-size: 0.7rem;
+            color: #999;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>📚 Gabarita Tudo</h1>
+            <p>Estude com questões de concursos e prepare-se para a aprovação</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Filtros -->
+        <div class="filters">
+            <div class="filter-group">
+                <label>📖 Disciplina</label>
+                <select id="disciplinaFilter">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>📅 Ano</label>
+                <select id="anoFilter">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>🏛️ Banca</label>
+                <select id="bancaFilter">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <button id="applyFilters">🔍 Aplicar Filtros</button>
+            </div>
+        </div>
+        
+        <!-- Ad Container Top -->
+        <div class="ad-container" id="adTop" style="display: none;">
+            <div class="ad-label">Publicidade</div>
+            <div id="googleAdTop"></div>
+        </div>
+        
+        <!-- Questões -->
+        <div id="questionsContainer" class="questions-container">
+            <div class="loading">Carregando questões...</div>
+        </div>
+        
+        <!-- Paginação -->
+        <div id="pagination" class="pagination"></div>
+        
+        <!-- Ad Container Bottom -->
+        <div class="ad-container" id="adBottom" style="display: none;">
+            <div class="ad-label">Publicidade</div>
+            <div id="googleAdBottom"></div>
+        </div>
+    </div>
+    
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        let currentFilters = {
+            disciplina_id: '',
+            ano: '',
+            banca_id: ''
+        };
+        
+        // Carregar opções de filtro
+        async function loadFilters() {
+            try {
+                const response = await fetch('/api/filtros');
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Disciplinas
+                    const disciplinaSelect = document.getElementById('disciplinaFilter');
+                    data.data.disciplinas.forEach(disciplina => {
+                        const option = document.createElement('option');
+                        option.value = disciplina.id;
+                        option.textContent = disciplina.nome;
+                        disciplinaSelect.appendChild(option);
+                    });
+                    
+                    // Anos
+                    const anoSelect = document.getElementById('anoFilter');
+                    data.data.anos.forEach(ano => {
+                        const option = document.createElement('option');
+                        option.value = ano.ano;
+                        option.textContent = ano.ano;
+                        anoSelect.appendChild(option);
+                    });
+                    
+                    // Bancas
+                    const bancaSelect = document.getElementById('bancaFilter');
+                    data.data.bancas.forEach(banca => {
+                        const option = document.createElement('option');
+                        option.value = banca.id;
+                        option.textContent = banca.nome;
+                        bancaSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Erro ao carregar filtros:', error);
+            }
+        }
+        
+        // Carregar questões
+        async function loadQuestions() {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '<div class="loading">Carregando questões...</div>';
+            
+            try {
+                const params = new URLSearchParams({
+                    page: currentPage,
+                    limit: 10,
+                    ...currentFilters
+                });
+                
+                const response = await fetch(`/api/questoes?${params}`);
+                const data = await response.json();
+                
+                if (data.success && data.data.length > 0) {
+                    displayQuestions(data.data);
+                    setupPagination(data.pagination);
+                } else {
+                    container.innerHTML = '<div class="loading">Nenhuma questão encontrada com os filtros selecionados.</div>';
+                    document.getElementById('pagination').innerHTML = '';
+                }
+            } catch (error) {
+                console.error('Erro ao carregar questões:', error);
+                container.innerHTML = '<div class="loading">Erro ao carregar questões. Tente novamente.</div>';
+            }
+        }
+        
+        // Exibir questões
+        function displayQuestions(questions) {
+            const container = document.getElementById('questionsContainer');
+            container.innerHTML = '';
+            
+            questions.forEach((question, index) => {
+                const card = document.createElement('div');
+                card.className = 'question-card';
+                
+                // Determinar tipo de questão
+                const isSingleProposition = question.total_proposicoes === 1;
+                const propositionType = isSingleProposition ? 'Certo ou Errado' : 'Única opção correta';
+                
+                card.innerHTML = `
+                    <div class="question-header">
+                        <div class="question-meta">
+                            <span class="badge">${question.disciplina_nome}</span>
+                            <span class="badge badge-year">${question.ano}</span>
+                            ${question.banca_nome ? `<span class="badge">${question.banca_nome}</span>` : ''}
+                            <span class="badge">${propositionType}</span>
+                        </div>
+                    </div>
+                    
+                    ${question.referencia ? `<div class="question-reference">${question.referencia}</div>` : ''}
+                    
+                    <div class="question-text">
+                        <strong>Questão ${index + 1}:</strong><br>
+                        ${question.texto}
+                    </div>
+                    
+                    ${question.julgue ? `<div class="question-reference"><strong>Julgue:</strong> ${question.julgue}</div>` : ''}
+                    
+                    <div class="propositions">
+                        ${question.proposicoes.map(prop => `
+                            <div class="proposition">
+                                <div class="proposition-text">
+                                    <strong>${prop.numero_ordem}.</strong> ${prop.texto}
+                                </div>
+                                <div class="proposition-options">
+                                    ${isSingleProposition ? `
+                                        <label><input type="radio" name="prop_${prop.id}" value="C"> Certo</label>
+                                        <label><input type="radio" name="prop_${prop.id}" value="E"> Errado</label>
+                                    ` : `
+                                        <label><input type="radio" name="prop_${prop.id}" value="C"> Certo</label>
+                                        <label><input type="radio" name="prop_${prop.id}" value="E"> Errado</label>
+                                    `}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="question-footer">
+                        <small>Selecione uma opção para cada proposição e confira o gabarito oficial.</small>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+        
+        // Configurar paginação
+        function setupPagination(pagination) {
+            const paginationDiv = document.getElementById('pagination');
+            paginationDiv.innerHTML = '';
+            
+            totalPages = pagination.total_pages;
+            
+            // Botão anterior
+            const prevButton = document.createElement('button');
+            prevButton.textContent = '« Anterior';
+            prevButton.disabled = currentPage === 1;
+            prevButton.onclick = () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    loadQuestions();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            };
+            paginationDiv.appendChild(prevButton);
+            
+            // Números das páginas (limitado a 5)
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, startPage + 4);
+            
+            for (let i = startPage; i <= endPage; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.textContent = i;
+                pageButton.className = i === currentPage ? 'active' : '';
+                pageButton.onclick = () => {
+                    currentPage = i;
+                    loadQuestions();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+                paginationDiv.appendChild(pageButton);
+            }
+            
+            // Botão próximo
+            const nextButton = document.createElement('button');
+            nextButton.textContent = 'Próximo »';
+            nextButton.disabled = currentPage === totalPages;
+            nextButton.onclick = () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadQuestions();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            };
+            paginationDiv.appendChild(nextButton);
+        }
+        
+        // Aplicar filtros
+        document.getElementById('applyFilters').addEventListener('click', () => {
+            currentFilters = {
+                disciplina_id: document.getElementById('disciplinaFilter').value,
+                ano: document.getElementById('anoFilter').value,
+                banca_id: document.getElementById('bancaFilter').value
+            };
+            currentPage = 1;
+            loadQuestions();
+        });
+        
+        // Inicializar
+        loadFilters();
+        loadQuestions();
+    </script>
+</body>
+</html>
+```
+
+=========================================
+📄 ./__hdn/ddl.sql
+=========================================
+```sql
+-- =========================================
+-- CONFIGURAÇÃO DO AMBIENTE
+-- =========================================
+
+SET @env = 'dev'; -- 'prod' ou 'dev'
+
+SET @db_name = IF(@env = 'prod', 'sistema_questoes', 'sistema_questoes_dev');
+SET @db_user = IF(@env = 'prod', 'app_questoes', 'app_questoes_dev');
+SET @db_pass = IF(@env = 'prod', '8&t|YOAc5e2o7/7{2', 'bP64nq$v0J~X||');
+
+-- =========================================
+-- CRIAR DATABASE
+-- =========================================
+
+SET @query = CONCAT('
+CREATE DATABASE IF NOT EXISTS ', @db_name, '
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- =========================================
+-- USAR DATABASE
+-- =========================================
+
+SET @query = CONCAT('USE ', @db_name, ';');
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- =========================================
+-- CRIAR USUÁRIO
+-- =========================================
+
+SET @query = CONCAT(
+"CREATE USER IF NOT EXISTS '", @db_user, "'@'localhost' IDENTIFIED BY '", @db_pass, "';"
+);
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- =========================================
+-- PERMISSÕES
+-- =========================================
+
+SET @query = CONCAT(
+"GRANT SELECT, INSERT, UPDATE, DELETE ON ", @db_name, ".* TO '", @db_user, "'@'localhost';"
+);
+PREPARE stmt FROM @query;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+FLUSH PRIVILEGES;
+
+-- -----------------------------------------------------
+-- 3. Criar as tabelas
+-- -----------------------------------------------------
+
+-- Tabela: bancas
+CREATE TABLE bancas (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nome VARCHAR(150) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY unq_nome (nome)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela: disciplinas
+CREATE TABLE disciplinas (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    nome VARCHAR(100) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY unq_nome (nome)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela: provas
+CREATE TABLE provas (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    ano YEAR NOT NULL,
+    banca_id INT UNSIGNED NULL,
+    nome VARCHAR(200) NULL,
+    PRIMARY KEY (id),
+    INDEX idx_ano (ano),
+    INDEX idx_banca (banca_id),
+    FOREIGN KEY (banca_id) REFERENCES bancas(id) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela: provas_disciplinas
+CREATE TABLE provas_disciplinas (
+    prova_id INT UNSIGNED NOT NULL,
+    disciplina_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (prova_id, disciplina_id),
+    FOREIGN KEY (prova_id) REFERENCES provas(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (disciplina_id) REFERENCES disciplinas(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela: questoes
+CREATE TABLE questoes (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    prova_id INT UNSIGNED NOT NULL,
+    disciplina_id INT UNSIGNED NOT NULL,
+    texto LONGTEXT NOT NULL,
+    referencia TEXT NULL,
+    julgue VARCHAR(255) NULL,
+    ativo TINYINT(1) DEFAULT 1,
+    data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_prova (prova_id),
+    INDEX idx_disciplina (disciplina_id),
+    INDEX idx_ativo (ativo),
+    FOREIGN KEY (prova_id) REFERENCES provas(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (disciplina_id) REFERENCES disciplinas(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela: proposicoes
+CREATE TABLE proposicoes (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    questao_id INT UNSIGNED NOT NULL,
+    numero_ordem SMALLINT UNSIGNED NOT NULL,
+    texto TEXT NOT NULL,
+    resposta_oficial ENUM('C', 'E', 'X') NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY unq_questao_ordem (questao_id, numero_ordem),
+    FOREIGN KEY (questao_id) REFERENCES questoes(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela: usuarios
+CREATE TABLE usuarios (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    email VARCHAR(255) NOT NULL,
+    senha_hash VARCHAR(255) NOT NULL,
+    nome VARCHAR(100) NULL,
+    premium_ate DATE NULL,
+    ativo TINYINT(1) DEFAULT 1,
+    data_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY unq_email (email)
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabela: respostas_usuarios
+CREATE TABLE respostas_usuarios (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    usuario_id INT UNSIGNED NOT NULL,
+    proposicao_id INT UNSIGNED NOT NULL,
+    resposta ENUM('C', 'E') NOT NULL,
+    data_resposta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY unq_usuario_proposicao (usuario_id, proposicao_id),
+    INDEX idx_usuario (usuario_id),
+    INDEX idx_proposicao (proposicao_id),
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE ON UPDATE CASCADE,
+    FOREIGN KEY (proposicao_id) REFERENCES proposicoes(id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------
+-- 4. Inserir dados iniciais (opcional)
+-- -----------------------------------------------------
+
+-- Inserir uma banca de exemplo
+INSERT INTO bancas (nome) VALUES ('CACD / CEBRASPE') 
+ON DUPLICATE KEY UPDATE nome = nome;
+
+-- Inserir disciplinas de exemplo
+INSERT INTO disciplinas (nome) VALUES 
+('LÍNGUA PORTUGUESA'),
+('HISTÓRIA DO BRASIL'),
+('HISTÓRIA MUNDIAL'),
+('GEOGRAFIA'),
+('LÍNGUA INGLESA'),
+('POLÍTICA INTERNACIONAL'),
+('DIREITO')
+ON DUPLICATE KEY UPDATE nome = nome;
+
+-- -----------------------------------------------------
+-- 5. Verificar se tudo foi criado corretamente
+-- -----------------------------------------------------
+SHOW TABLES;
+SELECT 'Banco de dados criado com sucesso!' AS Status;
+
+ALTER TABLE usuarios ADD COLUMN is_admin TINYINT(1) DEFAULT 0;
+ALTER TABLE usuarios ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+```

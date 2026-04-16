@@ -438,7 +438,7 @@
                         ${question.texto}
                     </div>
                     
-                    ${question.julgue ? `<div class="question-reference"><strong>Julgue:</strong> ${question.julgue}</div>` : ''}
+                    ${question.julgue ? `<div class="question-reference">${question.julgue}</div>` : ''}
                     
                     <div class="propositions">
                         ${question.proposicoes.map(prop => `
