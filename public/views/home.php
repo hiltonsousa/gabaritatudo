@@ -6,6 +6,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8391675103832820"
+     crossorigin="anonymous"></script>
     <title>Sistema de Questões - Gabarita Tudo</title>
     <style>
         * {
